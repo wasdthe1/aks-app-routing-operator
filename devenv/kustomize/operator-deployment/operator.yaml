@@ -1,0 +1,52 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: default-admin
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # these should match values in e2e/e2e_test.go
+  name: app-routing-operator
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: app-routing-operator
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: app-routing-operator
+    spec:
+      containers:
+        - name: operator
+          image: mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114
+          command: ["/aks-app-routing-operator"]
+          args: []
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app-routing-operator
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: app-routing-operator
